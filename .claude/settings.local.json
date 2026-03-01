@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(npx next build)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx next dev)",
+      "Bash(npx next dev:*)",
+      "Bash(file:*)",
+      "Bash(curl:*)",
+      "Bash(node -e:*)",
+      "Bash(dir:*)",
+      "Bash(cmd /c \"dir \"\"C:\\\\Users\\\\Tyron\\\\Documents\\\\lausperte\\\\public\\\\event-logos\"\"\")",
+      "Bash(powershell -Command \"Copy-Item ''C:\\\\Users\\\\Tyron\\\\Documents\\\\lausperte\\\\event logos\\\\SES LOGOO.png'' ''C:\\\\Users\\\\Tyron\\\\Documents\\\\lausperte\\\\public\\\\event-logos\\\\ses.png''\")",
+      "Bash(npx tsc:*)",
+      "Bash(cd /c/Users/Tyron/Documents/lausperte && npm run build 2>&1)"
+    ]
+  }
+}
