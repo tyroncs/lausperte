@@ -328,7 +328,7 @@ function StoryCard({
         </span>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', marginTop: 72 }}>
           <span style={{ color: GREEN, fontFamily: AVENIR, fontWeight: 300, fontSize: TITLE_SIZE, lineHeight: 1 }}>
-            laŭsperte.com
+            lausperte.com
           </span>
         </div>
       </div>

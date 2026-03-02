@@ -15,7 +15,8 @@
       "Bash(cmd /c \"dir \"\"C:\\\\Users\\\\Tyron\\\\Documents\\\\lausperte\\\\public\\\\event-logos\"\"\")",
       "Bash(powershell -Command \"Copy-Item ''C:\\\\Users\\\\Tyron\\\\Documents\\\\lausperte\\\\event logos\\\\SES LOGOO.png'' ''C:\\\\Users\\\\Tyron\\\\Documents\\\\lausperte\\\\public\\\\event-logos\\\\ses.png''\")",
       "Bash(npx tsc:*)",
-      "Bash(cd /c/Users/Tyron/Documents/lausperte && npm run build 2>&1)"
+      "Bash(cd /c/Users/Tyron/Documents/lausperte && npm run build 2>&1)",
+      "Bash(cd:*)"
     ]
   }
 }
