@@ -1004,11 +1004,11 @@ function DonuPageInner({ events }: { events: Event[] }) {
         {/* Step: Comments (optional) */}
         {step === 'comments' && (
           <div className="space-y-4">
-            <div className="flex justify-end">
+            <div>
               <button
                 onClick={handleCommentsSubmit}
                 disabled={submittingComments}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
+                className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
               >
                 {submittingComments ? 'Sendante...' : Object.values(eventComments).some(v => v.trim()) ? 'Sendi komentojn' : 'Daŭrigi'}
               </button>
