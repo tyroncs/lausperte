@@ -1008,9 +1008,9 @@ function DonuPageInner({ events }: { events: Event[] }) {
               <button
                 onClick={handleCommentsSubmit}
                 disabled={submittingComments}
-                className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
+                className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
               >
-                {submittingComments ? 'Sendante...' : Object.values(eventComments).some(v => v.trim()) ? 'Sendi komentojn' : 'Daŭrigi'}
+                {submittingComments ? 'Sendante...' : Object.values(eventComments).some(v => v.trim()) ? 'Sendi komentojn' : 'Sekva paĝo'}
               </button>
             </div>
             {events.filter(event => event.editions.some(ed => selectedEditions.has(ed.id))).map(event => {
@@ -1089,9 +1089,9 @@ function DonuPageInner({ events }: { events: Event[] }) {
               <button
                 onClick={handleCommentsSubmit}
                 disabled={submittingComments}
-                className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
+                className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
               >
-                {submittingComments ? 'Sendante...' : Object.values(eventComments).some(v => v.trim()) ? 'Sendi komentojn' : 'Daŭrigi'}
+                {submittingComments ? 'Sendante...' : Object.values(eventComments).some(v => v.trim()) ? 'Sendi komentojn' : 'Sekva paĝo'}
               </button>
             </div>
           </div>
