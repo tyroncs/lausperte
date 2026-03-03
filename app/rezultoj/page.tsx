@@ -1,8 +1,22 @@
-import { getAllEditions } from '@/data/events';
+import { buildServerApiUrl } from '@/lib/server-api-url';
 import RezultojClient from './RezultojClient';
 
 export default async function RezultojPage() {
-  const editions = (await getAllEditions()).map(ed => ({
+  const response = await fetch(buildServerApiUrl('/api/events'), { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error('Failed to load events');
+  }
+  const { editions } = await response.json();
+
+  const mappedEditions = editions.map((ed: {
+    id: string;
+    eventName: string;
+    label: string;
+    location: string;
+    year: number;
+    logo: string;
+    flag?: string;
+  }) => ({
     id: ed.id,
     eventName: ed.eventName,
     label: ed.label,
@@ -12,5 +26,5 @@ export default async function RezultojPage() {
     flag: ed.flag,
   }));
 
-  return <RezultojClient editions={editions} />;
+  return <RezultojClient editions={mappedEditions} />;
 }

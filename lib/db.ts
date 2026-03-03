@@ -94,10 +94,6 @@ function rowToEdition(row: any): DbEdition {
   };
 }
 
-function isApproved(sub: Submission): boolean {
-  return !sub.status || sub.status === 'approved';
-}
-
 // ─── Events ───
 
 export async function getEvents(): Promise<DbEvent[]> {

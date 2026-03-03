@@ -1,18 +1,23 @@
-import { getEvents, getEditions } from '@/lib/db';
+import { buildServerApiUrl } from '@/lib/server-api-url';
 import DonuClient from './DonuClient';
 
-export default async function DonuPage() {
-  const [dbEvents, dbEditions] = await Promise.all([getEvents(), getEditions()]);
-  const editionsByEvent = new Map(dbEvents.map(ev => [ev.code, ev.name]));
+export const dynamic = 'force-dynamic';
 
-  const events = dbEvents.map(ev => ({
+export default async function DonuPage() {
+  const response = await fetch(buildServerApiUrl('/api/events'), { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error('Failed to load events');
+  }
+  const { events, editions } = await response.json();
+
+  const eventsWithEditions = events.map((ev: { code: string; name: string }) => ({
     code: ev.code,
     name: ev.name,
-    editions: dbEditions
-      .filter(ed => ed.eventCode === ev.code)
-      .map(ed => ({
+    editions: editions
+      .filter((ed: { eventCode: string }) => ed.eventCode === ev.code)
+      .map((ed: { id: string; eventName: string; label: string; location: string; year: number; logo: string }) => ({
         id: ed.id,
-        eventName: editionsByEvent.get(ed.eventCode) ?? ed.eventCode,
+        eventName: ed.eventName,
         label: ed.label,
         location: ed.location,
         year: ed.year,
@@ -20,5 +25,5 @@ export default async function DonuPage() {
       })),
   }));
 
-  return <DonuClient events={events} />;
+  return <DonuClient events={eventsWithEditions} />;
 }

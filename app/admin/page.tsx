@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { buildApiUrl } from '@/lib/api-url';
 
 type SortKey = 'name' | 'date' | 'editions';
 type SortDir = 'asc' | 'desc';
@@ -103,7 +104,7 @@ export default function AdminPage() {
 
   const apiUrl = useCallback((path: string, params: Record<string, string> = {}) => {
     const searchParams = new URLSearchParams({ secret, ...params });
-    return `${path}?${searchParams.toString()}`;
+    return buildApiUrl(`${path}?${searchParams.toString()}`);
   }, [secret]);
 
   const fetchData = useCallback(async () => {

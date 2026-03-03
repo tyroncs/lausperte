@@ -1,8 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { EditionRanking } from '@/lib/db';
 import EditionLogo from '@/app/EditionLogo';
+
+interface EditionRanking {
+  editionId: string;
+  editionName: string;
+  location: string;
+  eventCode: string;
+  year: number;
+  weightedScore: number;
+  totalWeight: number;
+  voterCount: number;
+  distribution: {
+    elstara: number;
+    suficeBone: number;
+    averaga: number;
+    malbona: number;
+  };
+}
 
 interface Comment {
   editionId: string;
@@ -17,10 +33,9 @@ interface RankingsListProps {
   comments?: Comment[];
   contributorCount?: number;
   logoMap?: Record<string, string>;
-  flagMap?: Record<string, string>;
 }
 
-export default function RankingsList({ rankings, eventCodes = [], comments = [], contributorCount, logoMap = {}, flagMap = {} }: RankingsListProps) {
+export default function RankingsList({ rankings, eventCodes = [], comments = [], contributorCount, logoMap = {} }: RankingsListProps) {
   const [showAll, setShowAll] = useState(false);
   const [eventFilter, setEventFilter] = useState<string>('all');
   const [postCovidOnly, setPostCovidOnly] = useState(false);
@@ -134,7 +149,6 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
                   onToggle={() => setExpandedId(expandedId === ranking.editionId ? null : ranking.editionId)}
                   comments={comments.filter(c => c.editionId === ranking.editionId)}
                   logoUrl={logoMap[ranking.editionId]}
-                  flagEmoji={flagMap[ranking.editionId]}
                 />
               ))}
             </div>
@@ -170,10 +184,9 @@ interface RankingRowProps {
   onToggle: () => void;
   comments: Comment[];
   logoUrl?: string;
-  flagEmoji?: string;
 }
 
-function RankingRow({ ranking, position, isExpanded, onToggle, comments, logoUrl, flagEmoji }: RankingRowProps) {
+function RankingRow({ ranking, position, isExpanded, onToggle, comments, logoUrl }: RankingRowProps) {
   const [showAllComments, setShowAllComments] = useState(false);
   // Show 5 random comments by default, all on "show all"
   const displayedComments = showAllComments ? comments : comments.slice(0, 5);
@@ -187,7 +200,7 @@ function RankingRow({ ranking, position, isExpanded, onToggle, comments, logoUrl
         <span className="flex-shrink-0 w-12 text-center text-xl font-bold text-emerald-800">{position}</span>
 
         {/* Event Info */}
-        <EditionLogo editionId={ranking.editionId} size={48} logoUrl={logoUrl} />
+        <EditionLogo size={48} logoUrl={logoUrl} />
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900">{ranking.editionName}</h3>
           <p className="text-sm text-gray-600">{ranking.location}</p>

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAllSubmissions } from '@/lib/db';
-import { getAllEditions, getEditionById } from '@/data/events';
+import { getAllSubmissions, getEvents, getEditions } from '@/lib/db';
 
 function checkAuth(request: NextRequest): boolean {
   const secret = request.nextUrl.searchParams.get('secret');
@@ -22,10 +21,21 @@ export async function GET(request: NextRequest) {
     }
 
     const format = request.nextUrl.searchParams.get('format') || 'json';
-    const [submissions, allEditions] = await Promise.all([
+    const [submissions, dbEvents, dbEditions] = await Promise.all([
       getAllSubmissions(),
-      getAllEditions(),
+      getEvents(),
+      getEditions(),
     ]);
+    const eventNameMap = new Map(dbEvents.map(e => [e.code, e.name]));
+    const allEditions = dbEditions.map(ed => ({
+      id: ed.id,
+      eventName: eventNameMap.get(ed.eventCode) ?? ed.eventCode,
+      label: ed.label,
+      location: ed.location,
+      year: ed.year,
+      logo: ed.logo,
+      flag: ed.flag,
+    }));
 
     if (format === 'csv') {
       const sortedEditions = allEditions.sort((a, b) => a.id.localeCompare(b.id));

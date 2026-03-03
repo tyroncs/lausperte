@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getSettings } from '@/lib/db';
+import { buildServerApiUrl } from '@/lib/server-api-url';
 
 export const revalidate = 60;
 
@@ -96,8 +96,12 @@ function renderInline(text: string): React.ReactNode[] {
 }
 
 export default async function PriPage() {
-  const settings = await getSettings();
-  const content = settings.priPageContent;
+  const response = await fetch(buildServerApiUrl('/api/pri'), { next: { revalidate: 60 } });
+  if (!response.ok) {
+    throw new Error('Failed to load pri page content');
+  }
+  const { priPageContent } = await response.json();
+  const content = priPageContent;
 
   return (
     <div className="min-h-screen bg-[#F9F3EB]">

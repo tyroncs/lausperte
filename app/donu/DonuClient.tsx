@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { buildApiUrl } from '@/lib/api-url';
 
 interface Edition {
   id: string;
@@ -113,7 +114,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
     if (!token) return;
     setEditToken(token);
     setLoadingEdit(true);
-    fetch(`/api/submission?token=${encodeURIComponent(token)}`)
+    fetch(buildApiUrl(`/api/submission?token=${encodeURIComponent(token)}`))
       .then(res => {
         if (!res.ok) throw new Error('Not found');
         return res.json();
@@ -448,7 +449,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
         if (categoryData) rankingData[editionId] = categoryData.score;
       });
       const intraRankings = computeIntraRankings();
-      const response = await fetch('/api/submit', {
+      const response = await fetch(buildApiUrl('/api/submit'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -552,7 +553,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
     if (Object.keys(nonEmpty).length > 0 && (submitResult?.editToken || editToken)) {
       setSubmittingComments(true);
       try {
-        await fetch('/api/submission/comments', {
+        await fetch(buildApiUrl('/api/submission/comments'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -656,7 +657,6 @@ function DonuPageInner({ events }: { events: Event[] }) {
               <div className="bg-emerald-600 px-6 py-4" />
               <div className="divide-y divide-gray-200">
                 {visibleEvents.map(event => {
-                  const selectedCount = event.editions.filter(ed => selectedEditions.has(ed.id)).length;
                   return (
                     <div key={event.code}>
                       <button
