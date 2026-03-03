@@ -10,6 +10,8 @@ interface EditionRanking {
   eventCode: string;
   year: number;
   weightedScore: number;
+  wilsonLowerBound: number;
+  wilsonUpperBound: number;
   totalWeight: number;
   voterCount: number;
   distribution: {

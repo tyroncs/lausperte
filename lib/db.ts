@@ -385,6 +385,8 @@ export interface EditionRanking {
   eventCode: string;
   year: number;
   weightedScore: number;
+  wilsonLowerBound: number;
+  wilsonUpperBound: number;
   totalWeight: number;
   voterCount: number;
   distribution: {
@@ -448,6 +450,7 @@ export async function calculateRankings(): Promise<EditionRanking[]> {
   }
 
   const rankings: EditionRanking[] = [];
+  const z = 1.96; // 95% confidence interval
 
   editionStats.forEach((stats, editionId) => {
     const edition = editions.find(e => e.id === editionId);
@@ -457,6 +460,12 @@ export async function calculateRankings(): Promise<EditionRanking[]> {
     const totalWeight = stats.weights.reduce((sum, w) => sum + w, 0);
     const weightedScore = weightedSum / totalWeight;
     const totalVotes = stats.scores.length;
+    const normalizedMean = Math.min(1, Math.max(0, (weightedScore - 1) / 3));
+    const denominator = 1 + (z * z) / totalVotes;
+    const center = normalizedMean + (z * z) / (2 * totalVotes);
+    const margin = z * Math.sqrt((normalizedMean * (1 - normalizedMean) + (z * z) / (4 * totalVotes)) / totalVotes);
+    const wilsonLowerBound = (center - margin) / denominator;
+    const wilsonUpperBound = (center + margin) / denominator;
 
     const distribution = {
       elstara:    (stats.distribution[4] / totalVotes) * 100,
@@ -474,6 +483,8 @@ export async function calculateRankings(): Promise<EditionRanking[]> {
       eventCode: edition.eventCode,
       year: edition.year,
       weightedScore,
+      wilsonLowerBound,
+      wilsonUpperBound,
       totalWeight,
       voterCount: totalVotes,
       distribution,
