@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllSubmissions, getEvents, getEditions } from '@/lib/db';
-
-function checkAuth(request: NextRequest): boolean {
-  const secret = request.nextUrl.searchParams.get('secret');
-  const expectedSecret = process.env.ADMIN_SECRET || 'change-me-in-production';
-  return secret === expectedSecret;
-}
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 function escapeCSV(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
@@ -16,9 +11,8 @@ function escapeCSV(value: string): string {
 
 export async function GET(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
 
     const format = request.nextUrl.searchParams.get('format') || 'json';
     const [submissions, dbEvents, dbEditions] = await Promise.all([

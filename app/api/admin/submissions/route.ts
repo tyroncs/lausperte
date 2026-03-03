@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAllSubmissions, getSubmissionsByStatus, getSettings } from '@/lib/db';
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const secret = request.nextUrl.searchParams.get('secret');
-    const expectedSecret = process.env.ADMIN_SECRET || 'change-me-in-production';
-
-    if (secret !== expectedSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
 
     const statusFilter = request.nextUrl.searchParams.get('status') || 'all';
     const [settings, submissions] = await Promise.all([

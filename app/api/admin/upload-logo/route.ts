@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-
-function checkAuth(request: NextRequest): boolean {
-  const secret = request.nextUrl.searchParams.get('secret');
-  const expectedSecret = process.env.ADMIN_SECRET || 'change-me-in-production';
-  return secret === expectedSecret;
-}
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export async function POST(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

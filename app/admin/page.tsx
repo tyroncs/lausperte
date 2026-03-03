@@ -68,6 +68,7 @@ const SCORE_LABELS: Record<number, string> = {
 export default function AdminPage() {
   const [secret, setSecret] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
+  const [authChecking, setAuthChecking] = useState(true);
   const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -103,18 +104,62 @@ export default function AdminPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const apiUrl = useCallback((path: string, params: Record<string, string> = {}) => {
-    const searchParams = new URLSearchParams({ secret, ...params });
-    return buildApiUrl(`${path}?${searchParams.toString()}`);
-  }, [secret]);
+    const searchParams = new URLSearchParams(params);
+    const query = searchParams.toString();
+    return buildApiUrl(query ? `${path}?${query}` : path);
+  }, []);
+
+  const apiFetch = useCallback(async (
+    path: string,
+    init?: RequestInit,
+    params: Record<string, string> = {},
+  ) => {
+    const response = await fetch(apiUrl(path, params), {
+      ...init,
+      credentials: 'include',
+    });
+
+    if (response.status === 401) {
+      setAuthenticated(false);
+      setAuthError('Seanco eksvalidiĝis. Ensalutu denove.');
+    }
+
+    return response;
+  }, [apiUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/admin/auth'), { credentials: 'include' });
+        if (!cancelled && response.ok) {
+          setAuthenticated(true);
+        }
+      } catch {
+        // ignore session check errors
+      } finally {
+        if (!cancelled) {
+          setAuthChecking(false);
+        }
+      }
+    };
+
+    checkSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [subRes, evRes, edRes] = await Promise.all([
-        fetch(apiUrl('/api/admin/submissions', { status: 'all' })),
-        fetch(apiUrl('/api/admin/events')),
-        fetch(apiUrl('/api/admin/editions')),
+        apiFetch('/api/admin/submissions', undefined, { status: 'all' }),
+        apiFetch('/api/admin/events'),
+        apiFetch('/api/admin/editions'),
       ]);
+      if (subRes.status === 401) return;
       if (!subRes.ok) throw new Error('Failed to fetch');
       const subData = await subRes.json();
       setSubmissions(subData.submissions);
@@ -135,24 +180,26 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [apiUrl]);
+  }, [apiFetch]);
 
   const handleLogin = async () => {
     if (!secret.trim()) return;
     setAuthError('');
     setLoading(true);
     try {
-      const res = await fetch(apiUrl('/api/admin/submissions', { status: 'all' }));
+      const res = await fetch(buildApiUrl('/api/admin/auth'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ secret }),
+      });
       if (res.status === 401) {
         setAuthError('Nevalida sekreto');
         setLoading(false);
         return;
       }
       if (!res.ok) throw new Error('Failed');
-      const data = await res.json();
-      setSubmissions(data.submissions);
-      setSettings(data.settings);
-      setPriDraft(data.settings.priPageContent || '');
+      setSecret('');
       setAuthenticated(true);
     } catch {
       setAuthError('Eraro dum konekto');
@@ -170,14 +217,14 @@ export default function AdminPage() {
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Forigi la respondon de "${name}"?`)) return;
-    const res = await fetch(apiUrl('/api/admin/submission', { id }), { method: 'DELETE' });
+    const res = await apiFetch('/api/admin/submission', { method: 'DELETE' }, { id });
     if (res.ok) {
       setSubmissions(prev => prev.filter(s => s.id !== id));
     }
   };
 
   const handleApprove = async (id: string) => {
-    const res = await fetch(apiUrl('/api/admin/submission'), {
+    const res = await apiFetch('/api/admin/submission', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, action: 'approve' }),
@@ -195,7 +242,7 @@ export default function AdminPage() {
   };
 
   const handleApproveComments = async (id: string) => {
-    const res = await fetch(apiUrl('/api/admin/submission'), {
+    const res = await apiFetch('/api/admin/submission', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, action: 'approve_comments' }),
@@ -207,7 +254,7 @@ export default function AdminPage() {
 
   const handleDeleteComments = async (id: string) => {
     if (!confirm('Forigi la komentojn?')) return;
-    const res = await fetch(apiUrl('/api/admin/submission'), {
+    const res = await apiFetch('/api/admin/submission', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, action: 'delete_comments' }),
@@ -219,7 +266,7 @@ export default function AdminPage() {
 
   const handleToggleModeration = async () => {
     const newValue = !settings.requireModeration;
-    const res = await fetch(apiUrl('/api/admin/settings'), {
+    const res = await apiFetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requireModeration: newValue }),
@@ -231,7 +278,7 @@ export default function AdminPage() {
 
   const handleToggleCommentModeration = async () => {
     const newValue = !settings.requireCommentModeration;
-    const res = await fetch(apiUrl('/api/admin/settings'), {
+    const res = await apiFetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requireCommentModeration: newValue }),
@@ -243,7 +290,7 @@ export default function AdminPage() {
 
   const handleSavePri = async () => {
     setPriSaved(false);
-    const res = await fetch(apiUrl('/api/admin/settings'), {
+    const res = await apiFetch('/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ priPageContent: priDraft }),
@@ -254,6 +301,15 @@ export default function AdminPage() {
       setPriSaved(true);
       setTimeout(() => setPriSaved(false), 3000);
     }
+  };
+
+  const handleLogout = async () => {
+    await fetch(buildApiUrl('/api/admin/auth'), {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    setAuthenticated(false);
+    setAuthError('');
   };
 
   const toggleRow = (id: string) => {
@@ -307,7 +363,7 @@ export default function AdminPage() {
     if (validEntries.length === 0) return;
 
     setAddResult(null);
-    const res = await fetch(apiUrl('/api/admin/submission'), {
+    const res = await apiFetch('/api/admin/submission', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -330,6 +386,16 @@ export default function AdminPage() {
 
   // Login screen
   if (!authenticated) {
+    if (authChecking) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-sm">
+            <p className="text-center text-gray-600">Kontrolante seancon...</p>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-sm">
@@ -585,13 +651,21 @@ export default function AdminPage() {
                 {settings.requireModeration ? 'Aktiva' : 'Malaktiva'}
               </span>
             </div>
-            <button
-              onClick={fetchData}
-              disabled={loading}
-              className="text-sm text-emerald-600 hover:text-emerald-800 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Refreŝigante...' : 'Refreŝigi'}
-            </button>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={fetchData}
+                disabled={loading}
+                className="text-sm text-emerald-600 hover:text-emerald-800 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Refreŝigante...' : 'Refreŝigi'}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Elsaluti
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700">Postuli moderigon por komentoj</span>
@@ -889,7 +963,7 @@ export default function AdminPage() {
                       <button
                         onClick={async () => {
                           if (!eventForm.code || !eventForm.name) return;
-                          const res = await fetch(apiUrl('/api/admin/events'), {
+                          const res = await apiFetch('/api/admin/events', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(eventForm),
@@ -942,7 +1016,7 @@ export default function AdminPage() {
                                   e.preventDefault();
                                   e.stopPropagation();
                                   const input = (e.target as HTMLFormElement).elements.namedItem('evName') as HTMLInputElement;
-                                  const res = await fetch(apiUrl('/api/admin/events'), {
+                                  const res = await apiFetch('/api/admin/events', {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ code: ev.code, name: input.value }),
@@ -980,7 +1054,7 @@ export default function AdminPage() {
                                   return;
                                 }
                                 if (!confirm(`Forigi eventon "${ev.name}"?`)) return;
-                                const res = await fetch(apiUrl('/api/admin/events', { code: ev.code }), { method: 'DELETE' });
+                                const res = await apiFetch('/api/admin/events', { method: 'DELETE' }, { code: ev.code });
                                 if (res.ok) fetchData();
                                 else {
                                   const data = await res.json();
@@ -1124,7 +1198,7 @@ export default function AdminPage() {
                                 const formData = new FormData();
                                 formData.append('file', file);
                                 try {
-                                  const res = await fetch(apiUrl('/api/admin/upload-logo'), {
+                                  const res = await apiFetch('/api/admin/upload-logo', {
                                     method: 'POST',
                                     body: formData,
                                   });
@@ -1173,7 +1247,7 @@ export default function AdminPage() {
                               return;
                             }
                             const method = editingEdition ? 'PUT' : 'POST';
-                            const res = await fetch(apiUrl('/api/admin/editions'), {
+                            const res = await apiFetch('/api/admin/editions', {
                               method,
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({
@@ -1254,7 +1328,7 @@ export default function AdminPage() {
                                 <button
                                   onClick={async () => {
                                     if (!confirm(`Forigi eldonon "${ed.id}"?`)) return;
-                                    const res = await fetch(apiUrl('/api/admin/editions', { id: ed.id }), { method: 'DELETE' });
+                                    const res = await apiFetch('/api/admin/editions', { method: 'DELETE' }, { id: ed.id });
                                     if (res.ok) {
                                       const data = await res.json();
                                       if (data.hasSubmissions) {

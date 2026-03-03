@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { deleteSubmission, approveSubmission, approveComments, saveSubmission, updateSubmission, getEditions, RankingData } from '@/lib/db';
 import { randomUUID } from 'crypto';
-
-function checkAuth(request: NextRequest): boolean {
-  const secret = request.nextUrl.searchParams.get('secret');
-  const expectedSecret = process.env.ADMIN_SECRET || 'change-me-in-production';
-  return secret === expectedSecret;
-}
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
 
     const submissionId = request.nextUrl.searchParams.get('id');
     if (!submissionId) {
@@ -34,9 +28,8 @@ export async function DELETE(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
 
     const body = await request.json();
     const { id, action } = body;
@@ -78,9 +71,8 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
 
     const body = await request.json();
     const { submissions } = body;

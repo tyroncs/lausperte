@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEditions, addEdition, updateEdition, deleteEdition } from '@/lib/db';
-
-function checkAuth(request: NextRequest): boolean {
-  const secret = request.nextUrl.searchParams.get('secret');
-  const expectedSecret = process.env.ADMIN_SECRET || 'change-me-in-production';
-  return secret === expectedSecret;
-}
+import { requireAdminAuth } from '@/lib/admin-auth';
 
 export async function GET(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
     const eventCode = request.nextUrl.searchParams.get('eventCode');
     let editions = await getEditions();
     if (eventCode) {
@@ -26,9 +20,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
     const body = await request.json();
     const { id, eventCode, label, location, year, logo, flag } = body;
     if (!id || !eventCode || !label || !location || !year) {
@@ -48,9 +41,8 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
     const body = await request.json();
     const { id, ...data } = body;
     if (!id) {
@@ -70,9 +62,8 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    if (!checkAuth(request)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const unauthorized = requireAdminAuth(request);
+    if (unauthorized) return unauthorized;
     const id = request.nextUrl.searchParams.get('id');
     if (!id) {
       return NextResponse.json({ error: 'id parameter required' }, { status: 400 });
