@@ -1,8 +1,8 @@
 import { buildServerApiUrl } from '@/lib/server-api-url';
 import HomeClient from './HomeClient';
 
-// Revalidate this page every 60 seconds to show updated rankings
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function HomePage() {
   const response = await fetch(buildServerApiUrl('/api/home'), { cache: 'no-store' });
