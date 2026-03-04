@@ -41,7 +41,7 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
   const [showAll, setShowAll] = useState(false);
   const [eventFilter, setEventFilter] = useState<string>('all');
   const [postCovidOnly, setPostCovidOnly] = useState(false);
-  const [minVoters, setMinVoters] = useState(false);
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<'statistical' | 'responses'>('statistical');
 
@@ -58,11 +58,7 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
     filtered = filtered.filter(r => r.year >= 2022);
   }
 
-  if (minVoters) {
-    filtered = filtered.filter(r => r.voterCount >= 5);
-  }
-
-  // Apply sort
+// Apply sort
   const sorted = sortMode === 'responses'
     ? [...filtered].sort((a, b) => b.voterCount - a.voterCount)
     : [...filtered].sort((a, b) => {
@@ -106,17 +102,7 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
           Nur post-KOVIM
         </label>
 
-        <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={minVoters}
-            onChange={(e) => setMinVoters(e.target.checked)}
-            className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
-          />
-          Almenaŭ 5 voĉdonantoj
-        </label>
-
-        <div className="ml-auto flex items-center gap-1.5">
+<div className="ml-auto flex items-center gap-1.5">
           <span className="text-sm text-gray-600">Ordigu laŭ</span>
           <button
             onClick={() => setSortMode('statistical')}
