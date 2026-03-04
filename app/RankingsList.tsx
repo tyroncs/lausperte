@@ -43,7 +43,7 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
   const [postCovidOnly, setPostCovidOnly] = useState(false);
   const [minVoters, setMinVoters] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [sortMode, setSortMode] = useState<'score' | 'statistical' | 'responses'>('statistical');
+  const [sortMode, setSortMode] = useState<'statistical' | 'responses'>('statistical');
 
   const safeEventCodes = eventCodes ?? [];
 
@@ -65,13 +65,11 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
   // Apply sort
   const sorted = sortMode === 'responses'
     ? [...filtered].sort((a, b) => b.voterCount - a.voterCount)
-    : sortMode === 'statistical'
-      ? [...filtered].sort((a, b) => {
-          if (b.wilsonLowerBound !== a.wilsonLowerBound) return b.wilsonLowerBound - a.wilsonLowerBound;
-          if (b.weightedScore !== a.weightedScore) return b.weightedScore - a.weightedScore;
-          return b.voterCount - a.voterCount;
-        })
-      : filtered;
+    : [...filtered].sort((a, b) => {
+        if (b.wilsonLowerBound !== a.wilsonLowerBound) return b.wilsonLowerBound - a.wilsonLowerBound;
+        if (b.weightedScore !== a.weightedScore) return b.weightedScore - a.weightedScore;
+        return b.voterCount - a.voterCount;
+      });
 
   const displayed = showAll ? sorted : sorted.slice(0, 10);
   const hasMore = sorted.length > 10;
@@ -124,16 +122,6 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
             onClick={() => setSortMode('statistical')}
             className={`px-2 py-1 rounded-l-lg text-sm font-medium border transition-colors ${
               sortMode === 'statistical'
-                ? 'bg-emerald-600 text-white border-emerald-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            stastistikoj
-          </button>
-          <button
-            onClick={() => setSortMode('score')}
-            className={`px-2 py-1 text-sm font-medium border-t border-b border-r transition-colors ${
-              sortMode === 'score'
                 ? 'bg-emerald-600 text-white border-emerald-600'
                 : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
             }`}
