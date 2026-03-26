@@ -396,6 +396,17 @@ function RezultojContent({ editions }: { editions: Edition[] }) {
     setIsGenerating(true);
     setShareError(null);
     try {
+      // Wait for fonts and all images in the card to load before capturing
+      await document.fonts.ready;
+      const images = Array.from(cardRef.current.querySelectorAll('img'));
+      await Promise.all(
+        images.map(img =>
+          img.complete
+            ? Promise.resolve()
+            : new Promise<void>(resolve => { img.onload = img.onerror = () => resolve(); })
+        )
+      );
+
       const { toPng } = await import('html-to-image');
       const dataUrl = await toPng(cardRef.current, {
         width: CARD_W,
