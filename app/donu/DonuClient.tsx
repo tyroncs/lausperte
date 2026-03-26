@@ -48,7 +48,7 @@ const DownArrow = () => (
 function DonuPageInner({ events }: { events: Event[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<'intro' | 'select' | 'rank' | 'top3' | 'comments'>('intro');
+  const [step, setStep] = useState<'intro' | 'select' | 'rank' | 'top3'>('intro');
 
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [selectedEditions, setSelectedEditions] = useState<Set<string>>(new Set());
@@ -61,8 +61,6 @@ function DonuPageInner({ events }: { events: Event[] }) {
   const [loadingEdit, setLoadingEdit] = useState(false);
 
   // Optional fields
-  const [expandedCommentId, setExpandedCommentId] = useState<string | null>(null);
-  const [expandedCommentEvents, setExpandedCommentEvents] = useState<Set<string>>(new Set());
 
   // DnD state for cross-category drag
   const [draggedEditionId, setDraggedEditionId] = useState<string | null>(null);
@@ -86,27 +84,10 @@ function DonuPageInner({ events }: { events: Event[] }) {
   const [top3Slots, setTop3Slots] = useState<(string | null)[]>([]);
   const [submitResult, setSubmitResult] = useState<{ editToken?: string; edited?: boolean } | null>(null);
 
-  // Comments state
-  const [eventComments, setEventComments] = useState<{ [editionId: string]: string }>({});
-  const [submittingComments, setSubmittingComments] = useState(false);
-  // Stored result page params for after comments step
-  const [resultParams, setResultParams] = useState<URLSearchParams | null>(null);
-
   // Scroll to top when step changes
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [step]);
-
-  // Auto-expand all events with attended editions when entering comments step
-  useEffect(() => {
-    if (step === 'comments') {
-      const evSet = new Set<string>();
-      events.forEach(ev => {
-        if (ev.editions.some(ed => selectedEditions.has(ed.id))) evSet.add(ev.code);
-      });
-      setExpandedCommentEvents(evSet);
-    }
-  }, [step, selectedEditions]);
 
   // Load existing submission when edit token is present in URL
   useEffect(() => {
@@ -491,11 +472,8 @@ function DonuPageInner({ events }: { events: Event[] }) {
         const top3 = pairs.slice(0, 3).map(p => `${p.rank}:${p.id}`);
         const params = buildResultParams();
         if (top3.length > 0) params.set('top', top3.join(','));
-        // Go to comments step instead of redirecting
-        setSubmitResult(result);
-        setResultParams(params);
         setIsSubmitting(false);
-        setStep('comments');
+        router.push(`/rezultoj?${params.toString()}`);
       }
     } catch {
       setError('Eraro okazis. Bonvolu reprovi.');
@@ -540,39 +518,9 @@ function DonuPageInner({ events }: { events: Event[] }) {
     // Carry over editToken from submission result
     if (submitResult?.editToken) params.set('editToken', submitResult.editToken);
     if (submitResult?.edited) params.set('edited', '1');
-    // Go to comments step
-    setResultParams(params);
-    setStep('comments');
+    router.push(`/rezultoj?${params.toString()}`);
   };
 
-  const handleCommentsSubmit = async () => {
-    const nonEmpty = Object.fromEntries(
-      Object.entries(eventComments).filter(([, v]) => v.trim())
-    );
-
-    if (Object.keys(nonEmpty).length > 0 && (submitResult?.editToken || editToken)) {
-      setSubmittingComments(true);
-      try {
-        await fetch(buildApiUrl('/api/submission/comments'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            editToken: submitResult?.editToken || editToken,
-            comments: nonEmpty,
-          }),
-        });
-      } catch {
-        // Don't block the user if comments fail to save
-      }
-      setSubmittingComments(false);
-    }
-
-    if (resultParams) {
-      router.push(`/rezultoj?${resultParams.toString()}`);
-    } else {
-      router.push('/rezultoj');
-    }
-  };
 
 
   // Editions filtered by intro selections (used in the select step)
@@ -598,14 +546,12 @@ function DonuPageInner({ events }: { events: Event[] }) {
             {step === 'select' && (isEditMode ? 'Redaktu vian opinion' : 'Kiujn eventojn?')}
             {step === 'rank' && 'Rangigu!'}
             {step === 'top3' && 'Rangigu!'}
-            {step === 'comments' && 'Donu komenton'}
           </h1>
           <p className="text-emerald-700">
             {step === 'intro' && <>Elektu ĉiujn eventojn kiujn vi <em>iam ajn</em> ĉeestis</>}
             {step === 'select' && 'Elektu la specifajn eventojn kiujn vi ĉeestis'}
             {step === 'rank' && 'Bonvolu meti la eventojn en unu de la kategoriojn'}
             {step === 'top3' && 'Kiuj estis viaj 3 plej bonaj eventoj?'}
-            {step === 'comments' && 'Ĉu vi volas fari publikan komenton pri iu evento? (nedeviga)'}
           </p>
         </header>
 
@@ -913,7 +859,6 @@ function DonuPageInner({ events }: { events: Event[] }) {
                 <label htmlFor="name" className="block font-semibold text-gray-700 mb-2">Via nomo aŭ kaŝnomo</label>
                 <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={50} placeholder="Ekz. Zamenhof"
                   className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none" />
-                <p className="text-sm text-gray-500 mt-1">Se vi lasas komentojn, via nomo aperos publike apud ili.</p>
               </div>
 
               {!isEditMode && (
@@ -1001,101 +946,6 @@ function DonuPageInner({ events }: { events: Event[] }) {
           </div>
         )}
 
-        {/* Step: Comments (optional) */}
-        {step === 'comments' && (
-          <div className="space-y-4">
-            <div>
-              <button
-                onClick={handleCommentsSubmit}
-                disabled={submittingComments}
-                className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {submittingComments ? 'Sendante...' : Object.values(eventComments).some(v => v.trim()) ? 'Sendi komentojn' : 'Sekva paĝo'}
-              </button>
-            </div>
-            {events.filter(event => event.editions.some(ed => selectedEditions.has(ed.id))).map(event => {
-              const attendedEditions = event.editions.filter(ed => selectedEditions.has(ed.id));
-              return (
-                <div key={event.code} className="bg-white rounded-lg shadow-md overflow-hidden">
-                  <button
-                    onClick={() => setExpandedCommentEvents(prev => {
-                      const next = new Set(prev);
-                      if (next.has(event.code)) next.delete(event.code);
-                      else next.add(event.code);
-                      return next;
-                    })}
-                    className="w-full px-6 py-4 text-left font-semibold text-lg bg-[#6A9F90] hover:bg-[#5A8F80] text-white transition-colors flex justify-between items-center"
-                  >
-                    <span>{event.name}</span>
-                    <span className="text-2xl">{expandedCommentEvents.has(event.code) ? '\u2212' : '+'}</span>
-                  </button>
-                  {expandedCommentEvents.has(event.code) && (
-                    <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {attendedEditions.map(edition => {
-                        const isOpen = expandedCommentId === edition.id;
-                        const hasComment = (eventComments[edition.id] || '').trim().length > 0;
-                        return (
-                          <div key={edition.id} className={isOpen ? 'col-span-2 sm:col-span-3 md:col-span-4' : ''}>
-                            <button
-                              type="button"
-                              onClick={() => setExpandedCommentId(isOpen ? null : edition.id)}
-                              className={`w-full text-left p-2 rounded border cursor-pointer transition-colors ${
-                                isOpen
-                                  ? 'bg-gray-50 border-emerald-300'
-                                  : 'bg-white border-gray-200 hover:bg-gray-50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-medium text-gray-900 text-sm">{edition.label}</span>
-                                {hasComment ? (
-                                  <svg className="w-5 h-5 text-emerald-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4 text-yellow-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                                  </svg>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-500 italic truncate">{edition.location}</div>
-                            </button>
-                            {isOpen && (
-                              <div className="mt-2 mb-1">
-                                <textarea
-                                  value={eventComments[edition.id] || ''}
-                                  onChange={(e) => setEventComments(prev => ({ ...prev, [edition.id]: e.target.value }))}
-                                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setExpandedCommentId(null); } }}
-                                  placeholder="Via komento (maks. 200 signoj)..."
-                                  maxLength={200}
-                                  rows={2}
-                                  autoFocus
-                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none resize-none"
-                                />
-                                <div className="text-right text-xs text-gray-400 mt-1">
-                                  {(eventComments[edition.id] || '').length}/200
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            <div className="flex gap-4 pt-6">
-              <button
-                onClick={handleCommentsSubmit}
-                disabled={submittingComments}
-                className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold px-6 py-3 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {submittingComments ? 'Sendante...' : Object.values(eventComments).some(v => v.trim()) ? 'Sendi komentojn' : 'Sekva paĝo'}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
