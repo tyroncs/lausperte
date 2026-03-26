@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
-import { calculateRankings, getSubmissionCount, getApprovedComments, getEvents, getEditions } from '@/lib/db';
+import { calculateRankings, getSubmissionCount, getEvents, getEditions } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET() {
   try {
-    const [dbEditions, rankings, contributorCount, comments, events] = await Promise.all([
+    const [dbEditions, rankings, contributorCount, events] = await Promise.all([
       getEditions(),
       calculateRankings(),
       getSubmissionCount(),
-      getApprovedComments(),
       getEvents(),
     ]);
 
@@ -24,7 +23,6 @@ export async function GET() {
       {
         rankings,
         contributorCount,
-        comments,
         eventCodes,
         logoMap,
       },

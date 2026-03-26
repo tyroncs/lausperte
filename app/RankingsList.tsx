@@ -22,22 +22,14 @@ interface EditionRanking {
   };
 }
 
-interface Comment {
-  editionId: string;
-  name: string;
-  comment: string;
-  submissionId: string;
-}
-
 interface RankingsListProps {
   rankings: EditionRanking[];
   eventCodes: Array<{ code: string; name: string }>;
-  comments?: Comment[];
   contributorCount?: number;
   logoMap?: Record<string, string>;
 }
 
-export default function RankingsList({ rankings, eventCodes = [], comments = [], contributorCount, logoMap = {} }: RankingsListProps) {
+export default function RankingsList({ rankings, eventCodes = [], contributorCount, logoMap = {} }: RankingsListProps) {
   const [showAll, setShowAll] = useState(false);
   const [eventFilter, setEventFilter] = useState<string>('all');
   const [postCovidOnly, setPostCovidOnly] = useState(false);
@@ -139,7 +131,6 @@ export default function RankingsList({ rankings, eventCodes = [], comments = [],
                   position={index + 1}
                   isExpanded={expandedId === ranking.editionId}
                   onToggle={() => setExpandedId(expandedId === ranking.editionId ? null : ranking.editionId)}
-                  comments={comments.filter(c => c.editionId === ranking.editionId)}
                   logoUrl={logoMap[ranking.editionId]}
                 />
               ))}
@@ -174,14 +165,10 @@ interface RankingRowProps {
   position: number;
   isExpanded: boolean;
   onToggle: () => void;
-  comments: Comment[];
   logoUrl?: string;
 }
 
-function RankingRow({ ranking, position, isExpanded, onToggle, comments, logoUrl }: RankingRowProps) {
-  const [showAllComments, setShowAllComments] = useState(false);
-  // Show 5 random comments by default, all on "show all"
-  const displayedComments = showAllComments ? comments : comments.slice(0, 5);
+function RankingRow({ ranking, position, isExpanded, onToggle, logoUrl }: RankingRowProps) {
   return (
     <div
       className="px-6 py-3 hover:bg-emerald-50 transition-colors cursor-pointer"
@@ -206,36 +193,13 @@ function RankingRow({ ranking, position, isExpanded, onToggle, comments, logoUrl
         </div>
       </div>
 
-      {/* Inline Pie Chart + Comments when expanded */}
+      {/* Inline Pie Chart when expanded */}
       {isExpanded && (
         <div className="mt-4" onClick={(e) => e.stopPropagation()}>
           <PieChartInline
             distribution={ranking.distribution}
             voterCount={ranking.voterCount}
           />
-          {comments.length > 0 && (
-            <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <h4 className="text-sm font-semibold text-gray-700 mb-3">Komentoj ({comments.length})</h4>
-              <div className="space-y-3">
-                {displayedComments.map((c, i) => (
-                  <div key={i} className="bg-white rounded-lg border border-gray-100 px-4 py-3">
-                    <p className="text-sm text-gray-600 italic">&ldquo;{c.comment}&rdquo;</p>
-                    <div className="text-right mt-1">
-                      <span className="text-xs font-bold text-gray-500">&mdash; {c.name}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {comments.length > 5 && (
-                <button
-                  onClick={() => setShowAllComments(v => !v)}
-                  className="mt-2 text-sm text-emerald-600 hover:text-emerald-800 font-medium"
-                >
-                  {showAllComments ? 'Montri malpli' : `Montri ĉiujn ${comments.length} komentojn`}
-                </button>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>

@@ -22,17 +22,9 @@ interface EditionRanking {
   };
 }
 
-interface Comment {
-  editionId: string;
-  name: string;
-  comment: string;
-  submissionId: string;
-}
-
 interface HomeData {
   rankings: EditionRanking[];
   contributorCount: number;
-  comments: Comment[];
   eventCodes: Array<{ code: string; name: string }>;
   logoMap: Record<string, string>;
 }
@@ -84,7 +76,6 @@ export default function HomeClient({ initialData }: HomeClientProps) {
           <RankingsList
             rankings={data.rankings}
             eventCodes={data.eventCodes}
-            comments={data.comments}
             contributorCount={data.contributorCount}
             logoMap={data.logoMap}
           />
