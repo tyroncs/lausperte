@@ -327,8 +327,8 @@ function StoryCard({
           ★
         </span>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center', marginTop: 72 }}>
-          <span style={{ color: GREEN, fontFamily: AVENIR, fontWeight: 300, fontSize: TITLE_SIZE, lineHeight: 1 }}>
-            lausperte.com
+          <span style={{ color: GREEN, fontFamily: AVENIR, fontWeight: 300, fontSize: 61, lineHeight: 1 }}>
+            lausperte.tejo.org
           </span>
         </div>
       </div>
@@ -378,7 +378,7 @@ function RezultojContent({ editions }: { editions: Edition[] }) {
     'Miaj plej ŝatataj:',
     ...topLines,
     '',
-    'Patroprenu ĉe https://lausperte.vercel.app/donu',
+    'Patroprenu ĉe https://lausperte.tejo.org/donu',
   ].join('\n');
 
   const handleCopyForTelegram = async () => {
