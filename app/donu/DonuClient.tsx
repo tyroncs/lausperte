@@ -863,7 +863,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
 
               {!isEditMode && (
                 <p className="text-xs text-gray-400">
-                  Se vi jam antaŭe plenigis la formularon kaj volas redakti ĝin, kontaktu la administranton por ricevi redaktan ligilon.
+                  Ni moderigos la respondojn por forigi spamajn kontribuojn, do bonvolu uzi identigeblan nomon ĉi tie, por eviti tion okazi al vi!
                 </p>
               )}
             </div>
