@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { getSettings, updateSettings, WeightingMode } from '@/lib/db';
 import { requireAdminAuth } from '@/lib/admin-auth';
 
@@ -58,6 +59,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const settings = await updateSettings(update);
+    if ('priPageContent' in update) {
+      revalidatePath('/pri');
+    }
     return NextResponse.json({ success: true, settings });
   } catch (error) {
     console.error('Error updating settings:', error);
