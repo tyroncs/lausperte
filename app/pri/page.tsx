@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { buildServerApiUrl } from '@/lib/server-api-url';
+import { getSettings } from '@/lib/db';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
 
 function renderMarkdown(md: string) {
   // Simple markdown renderer supporting:
@@ -96,12 +96,8 @@ function renderInline(text: string): React.ReactNode[] {
 }
 
 export default async function PriPage() {
-  const response = await fetch(buildServerApiUrl('/api/pri'), { next: { revalidate: 60 } });
-  if (!response.ok) {
-    throw new Error('Failed to load pri page content');
-  }
-  const { priPageContent } = await response.json();
-  const content = priPageContent;
+  const settings = await getSettings();
+  const content = settings.priPageContent;
 
   return (
     <div className="min-h-screen bg-[#F9F3EB]">
