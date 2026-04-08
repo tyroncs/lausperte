@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getEvents, getEditions } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const [events, dbEditions] = await Promise.all([getEvents(), getEditions()]);
