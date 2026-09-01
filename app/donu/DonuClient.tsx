@@ -465,7 +465,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
         return params;
       };
 
-      if (disambiguation.needed) {
+      if (disambiguation.needed && submissionMode !== 'addon') {
         setTop3Candidates(disambiguation.candidates);
         setTop3Slots([null, null, null]);
         setIsSubmitting(false);
@@ -565,7 +565,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
             {step === 'select' && (
               submissionMode === 'addon'
                 ? 'Elektu la specifan(j)n eldono(j)n, kiun(j)n vi volas aldoni'
-                : 'Elektu la specifajn eventojn kiujn vi ĉeestis'
+                : 'Elektu la specifajn jarojn, por la eventoj kiujn vi ĉeestis'
             )}
             {step === 'rank' && 'Bonvolu meti la eventojn en unu de la kategoriojn'}
             {step === 'top3' && 'Kiuj estis viaj 3 plej bonaj eventoj?'}

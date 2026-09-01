@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useRef } from 'react';
+import { Suspense, useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -352,6 +352,10 @@ function RezultojContent({ editions }: { editions: Edition[] }) {
   const [copied, setCopied] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Parse top entries: "1:ijk-2024,2:ijk-2023,3:jes-2025"
   const topEntries = topParam
