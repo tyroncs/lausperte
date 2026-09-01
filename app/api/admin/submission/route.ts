@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteSubmission, approveSubmission, approveComments, saveSubmission, updateSubmission, getEditions, RankingData } from '@/lib/db';
+import { deleteSubmission, approveSubmission, approveComments, saveSubmission, updateSubmission, mergeSubmissions, getEditions, RankingData } from '@/lib/db';
 import { randomUUID } from 'crypto';
 import { requireAdminAuth } from '@/lib/admin-auth';
 
@@ -33,6 +33,18 @@ export async function PATCH(request: NextRequest) {
 
     const body = await request.json();
     const { id, action } = body;
+
+    if (action === 'merge') {
+      const { sourceId, targetId } = body;
+      if (!sourceId || !targetId) {
+        return NextResponse.json({ error: 'sourceId and targetId required' }, { status: 400 });
+      }
+      const result = await mergeSubmissions(sourceId, targetId);
+      if (!result.merged) {
+        return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, ...result });
+    }
 
     if (!id) {
       return NextResponse.json({ error: 'Submission ID required' }, { status: 400 });

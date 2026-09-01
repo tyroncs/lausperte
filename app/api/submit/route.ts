@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { attendedEditions, rankings, name, intraRankings, comments, flagDuplicate, editToken } = body;
+    const { attendedEditions, rankings, name, intraRankings, comments, flagDuplicate, flagAddOn, flagRedo, editToken } = body;
 
     // Validate name
     if (typeof name !== 'string' || name.trim().length === 0) {
@@ -148,6 +148,8 @@ export async function POST(request: NextRequest) {
         commentStatus: settings.requireCommentModeration ? 'pending' as const : 'approved' as const,
       } : {}),
       ...(flagDuplicate ? { flagDuplicate: true } : {}),
+      ...(flagAddOn ? { flagAddOn: true } : {}),
+      ...(flagRedo ? { flagRedo: true } : {}),
       ...(ipAlreadySubmitted ? { flagDuplicateIp: true } : {}),
     };
 

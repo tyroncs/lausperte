@@ -344,6 +344,7 @@ function RezultojContent({ editions }: { editions: Edition[] }) {
   const n = parseInt(searchParams.get('n') || '0', 10);
   const topParam = searchParams.get('top') || '';
   const isEdited = searchParams.get('edited') === '1';
+  const isAddOn = searchParams.get('mode') === 'addon';
   const since = searchParams.get('since') ? parseInt(searchParams.get('since')!, 10) : null;
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -454,12 +455,12 @@ function RezultojContent({ editions }: { editions: Edition[] }) {
       <div className="max-w-2xl mx-auto px-4 py-12">
         <header className="text-center mb-8">
           <h1 className="text-3xl font-bold text-emerald-900 mb-2">
-            {isEdited ? 'Via respondo estas ĝisdatigita!' : 'Dankon pro via kontribuo!'}
+            {isAddOn ? 'Dankon pro la aldono!' : isEdited ? 'Via respondo estas ĝisdatigita!' : 'Dankon pro via kontribuo!'}
           </h1>
-          <p className="text-emerald-700 mb-10">Ĉu vi volas kundividi viajn rezultojn?</p>
+          {!isAddOn && <p className="text-emerald-700 mb-10">Ĉu vi volas kundividi viajn rezultojn?</p>}
 
           {/* Quick-share buttons side by side */}
-          {topEntries.length > 0 && (
+          {!isAddOn && topEntries.length > 0 && (
             <div className="flex gap-3 justify-center">
               <button
                 onClick={handleShareInstagram}
@@ -503,7 +504,7 @@ function RezultojContent({ editions }: { editions: Edition[] }) {
         </header>
 
         {/* Instagram Story share */}
-        {topEntries.length > 0 && (
+        {!isAddOn && topEntries.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             {/* Live preview */}
             <div className="flex justify-center mb-5">
@@ -566,26 +567,28 @@ function RezultojContent({ editions }: { editions: Edition[] }) {
         )}
 
         {/* Shareable text + Telegram copy */}
-        <div id="telegram-section" className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap font-sans">
-            {shareText}
-          </pre>
-          <button
-            onClick={handleCopyForTelegram}
-            className={`mt-4 w-full font-semibold px-6 py-3 rounded-lg transition-colors ${
-              copied
-                ? 'bg-[#006EAA] text-white'
-                : 'bg-[#0088CC] hover:bg-[#006EAA] text-white'
-            }`}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-              </svg>
-              {copied ? 'Kopiita!' : 'Kopii por Telegram'}
-            </span>
-          </button>
-        </div>
+        {!isAddOn && (
+          <div id="telegram-section" className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-800 whitespace-pre-wrap font-sans">
+              {shareText}
+            </pre>
+            <button
+              onClick={handleCopyForTelegram}
+              className={`mt-4 w-full font-semibold px-6 py-3 rounded-lg transition-colors ${
+                copied
+                  ? 'bg-[#006EAA] text-white'
+                  : 'bg-[#0088CC] hover:bg-[#006EAA] text-white'
+              }`}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current flex-shrink-0" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                </svg>
+                {copied ? 'Kopiita!' : 'Kopii por Telegram'}
+              </span>
+            </button>
+          </div>
+        )}
 
         <div className="text-center">
           <Link

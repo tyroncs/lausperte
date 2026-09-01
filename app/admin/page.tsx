@@ -21,6 +21,9 @@ interface Submission {
   editToken?: string;
   flagDuplicate?: boolean;
   flagDuplicateIp?: boolean;
+  flagAddOn?: boolean;
+  flagRedo?: boolean;
+  ip?: string;
   comments?: { [editionId: string]: string };
   commentStatus?: 'approved' | 'pending';
 }
@@ -64,6 +67,409 @@ const SCORE_LABELS: Record<number, string> = {
 };
 
 // validEditions is now fetched dynamically from the database
+
+// ─── Candidate-match helpers for the returning-respondent merge tool ───
+
+function normalizeName(s: string): string {
+  return s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+function namesLikelyMatch(a: string, b: string): boolean {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  return na.includes(nb) || nb.includes(na);
+}
+
+interface Candidate {
+  submission: Submission;
+  reason: 'sama nomo' | 'sama IP' | 'sama nomo kaj IP';
+}
+
+function findCandidates(target: Submission, all: Submission[]): Candidate[] {
+  const candidates: Candidate[] = [];
+  for (const other of all) {
+    if (other.id === target.id) continue;
+    const sameIp = !!target.ip && !!other.ip && target.ip !== 'unknown' && target.ip === other.ip;
+    const sameName = namesLikelyMatch(target.name, other.name);
+    if (sameIp && sameName) candidates.push({ submission: other, reason: 'sama nomo kaj IP' });
+    else if (sameIp) candidates.push({ submission: other, reason: 'sama IP' });
+    else if (sameName) candidates.push({ submission: other, reason: 'sama nomo' });
+  }
+  return candidates;
+}
+
+// ─── SubmissionRow / SubmissionTable are defined at module scope (not inside
+// AdminPage) so their identity stays stable across AdminPage re-renders —
+// otherwise React remounts them (and resets their internal state, e.g. the
+// table's current page) every time something like row-expand state changes. ───
+
+interface SubmissionRowProps {
+  sub: Submission;
+  showApprove?: boolean;
+  expanded: boolean;
+  onToggle: (id: string) => void;
+  onApprove: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+  onMerge: (source: Submission, target: Submission, overlapping: string[]) => void;
+  onApproveComments: (id: string) => void;
+  onDeleteComments: (id: string) => void;
+  allSubmissions: Submission[];
+}
+
+function SubmissionRow({
+  sub, showApprove, expanded, onToggle, onApprove, onDelete, onMerge, onApproveComments, onDeleteComments, allSubmissions,
+}: SubmissionRowProps) {
+  const date = new Date(sub.timestamp).toLocaleDateString('eo', { year: 'numeric', month: 'short', day: 'numeric' });
+  const editionCount = sub.attendedEditions.length;
+  const [mergeSearchOpen, setMergeSearchOpen] = useState(false);
+  const [mergeQuery, setMergeQuery] = useState('');
+
+  const mergeResults = mergeQuery.trim()
+    ? allSubmissions
+        .filter(o => o.id !== sub.id && o.name.toLowerCase().includes(mergeQuery.trim().toLowerCase()))
+        .slice(0, 8)
+    : [];
+
+  const candidates = findCandidates(sub, allSubmissions);
+
+  return (
+    <>
+      <tr
+        className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+        onClick={() => onToggle(sub.id)}
+      >
+        <td className="px-4 py-3 font-medium text-gray-900 max-w-[160px]">
+          <div className="flex items-center gap-1">
+            <span className="truncate">{sub.name}</span>
+            {candidates.length > 0 && (
+              <span
+                title={`${candidates.length} eblaj kongruo(j) laŭ nomo/IP`}
+                className="shrink-0 text-amber-500 text-xs"
+              >
+                ⚠
+              </span>
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-gray-600 text-sm whitespace-nowrap">{date}</td>
+        <td className="px-4 py-3 text-gray-600 text-sm text-center">{editionCount}</td>
+        <td className="px-4 py-3 text-right whitespace-nowrap">
+          {showApprove && (
+            <button
+              onClick={e => { e.stopPropagation(); onApprove(sub.id); }}
+              className="text-sm bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded mr-2 transition-colors"
+            >
+              Aprobi
+            </button>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(sub.id, sub.name); }}
+            className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
+          >
+            Forigi
+          </button>
+        </td>
+      </tr>
+      {expanded && (
+        <tr className="bg-gray-50">
+          <td colSpan={4} className="px-4 py-3">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-sm font-medium text-gray-900">{sub.name}</span>
+              {sub.flagDuplicate && <span className="text-xs text-orange-600 bg-orange-100 rounded px-2 py-0.5">flago: duplikato</span>}
+              {sub.flagDuplicateIp && <span className="text-xs text-red-600 bg-red-100 rounded px-2 py-0.5">flago: sama IP</span>}
+              {sub.flagRedo && <span className="text-xs text-purple-600 bg-purple-100 rounded px-2 py-0.5">flago: refaro</span>}
+              {sub.flagAddOn && <span className="text-xs text-blue-600 bg-blue-100 rounded px-2 py-0.5">flago: nova evento (kunfandenda)</span>}
+            </div>
+            {candidates.length > 0 && (
+              <div className="mb-3">
+                <div className="text-xs font-medium text-gray-500 mb-1">Eblaj kongruoj:</div>
+                <div className="space-y-1">
+                  {candidates.map(({ submission: cand, reason }) => (
+                    <div key={cand.id} className="flex items-center justify-between gap-2 text-xs bg-white border border-gray-200 rounded px-2 py-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-gray-800">{cand.name}</span>
+                        <span className="text-gray-400">
+                          {new Date(cand.timestamp).toLocaleDateString('eo', { year: 'numeric', month: 'short', day: 'numeric' })}
+                        </span>
+                        <span className="text-gray-400">{cand.attendedEditions.length} eventoj</span>
+                        <span className="text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">{reason}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const overlapping = sub.attendedEditions.filter(id => cand.attendedEditions.includes(id));
+                            // flagAddOn: this submission is the add-on and should be merged
+                            // into (deleted in favor of) the original candidate. Otherwise the
+                            // currently expanded submission survives and absorbs the candidate.
+                            if (sub.flagAddOn) onMerge(sub, cand, overlapping);
+                            else onMerge(cand, sub, overlapping);
+                          }}
+                          className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-1 rounded transition-colors whitespace-nowrap"
+                        >
+                          Kunfandi ĉi tien →
+                        </button>
+                        {sub.flagRedo && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onDelete(cand.id, cand.name); }}
+                            className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded transition-colors whitespace-nowrap"
+                          >
+                            Forigi ĉi tiun (malnova)
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm mb-3">
+              {Object.entries(sub.rankings).map(([edId, score]) => (
+                <div key={edId} className="flex items-center gap-2">
+                  <span className={`inline-block w-2 h-2 rounded-full ${
+                    score === 4 ? 'bg-emerald-500' : score === 3 ? 'bg-blue-500' : score === 2 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`} />
+                  <span className="text-gray-700">{edId}</span>
+                  <span className="text-gray-400">({SCORE_LABELS[score]})</span>
+                </div>
+              ))}
+            </div>
+            {sub.comments && Object.keys(sub.comments).length > 0 && (
+              <div className="mb-3">
+                <div className="text-xs font-medium text-gray-500 mb-1">Komentoj {sub.commentStatus === 'pending' ? '(atendantaj)' : ''}:</div>
+                {Object.entries(sub.comments).map(([edId, comment]) => (
+                  <div key={edId} className="text-xs text-gray-600 ml-2">
+                    <span className="font-medium">{edId}:</span> {comment}
+                  </div>
+                ))}
+                {sub.commentStatus === 'pending' && (
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onApproveComments(sub.id); }}
+                      className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded transition-colors"
+                    >
+                      Aprobi komentojn
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDeleteComments(sub.id); }}
+                      className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
+                    >
+                      Forigi komentojn
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="flex items-center gap-2 flex-wrap">
+              {sub.editToken && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const link = `${window.location.origin}/donu?token=${sub.editToken}`;
+                    navigator.clipboard.writeText(link);
+                  }}
+                  className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
+                >
+                  Kopii redaktan ligilon
+                </button>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMergeSearchOpen(o => !o);
+                  setMergeQuery('');
+                }}
+                className="text-xs bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-1 rounded transition-colors"
+              >
+                Kunfandi kun alia respondo...
+              </button>
+            </div>
+            {mergeSearchOpen && (
+              <div className="mt-2 border border-gray-200 rounded p-2 bg-white" onClick={e => e.stopPropagation()}>
+                <input
+                  autoFocus
+                  type="text"
+                  value={mergeQuery}
+                  onChange={e => setMergeQuery(e.target.value)}
+                  placeholder="Serĉi laŭ nomo..."
+                  className="w-full text-sm border border-gray-300 rounded px-2 py-1 mb-2"
+                />
+                {mergeQuery.trim() && mergeResults.length === 0 && (
+                  <div className="text-xs text-gray-400 px-1">Neniuj kongruaj respondoj</div>
+                )}
+                {mergeResults.length > 0 && (
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {mergeResults.map(cand => (
+                      <div key={cand.id} className="flex items-center justify-between gap-2 text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-gray-800">{cand.name}</span>
+                          <span className="text-gray-400">
+                            {new Date(cand.timestamp).toLocaleDateString('eo', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          </span>
+                          <span className="text-gray-400">{cand.attendedEditions.length} eventoj</span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const overlapping = sub.attendedEditions.filter(id => cand.attendedEditions.includes(id));
+                            onMerge(cand, sub, overlapping);
+                            setMergeSearchOpen(false);
+                            setMergeQuery('');
+                          }}
+                          className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-1 rounded transition-colors whitespace-nowrap"
+                        >
+                          Kunfandi ĉi tien →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+const SUBMISSION_TABLE_PAGE_SIZE = 10;
+
+interface SubmissionTableProps {
+  subs: Submission[];
+  showApprove?: boolean;
+  tableId: string;
+  expandedRows: Set<string>;
+  onToggleRow: (id: string) => void;
+  onApprove: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
+  onMerge: (source: Submission, target: Submission, overlapping: string[]) => void;
+  onApproveComments: (id: string) => void;
+  onDeleteComments: (id: string) => void;
+  allSubmissions: Submission[];
+}
+
+function SubmissionTable({
+  subs, showApprove, tableId, expandedRows, onToggleRow, onApprove, onDelete, onMerge, onApproveComments, onDeleteComments, allSubmissions,
+}: SubmissionTableProps) {
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [page, setPage] = useState(0);
+  const [showAll, setShowAll] = useState(false);
+
+  // Reset page when data changes
+  useEffect(() => { setPage(0); }, [subs.length, tableId]);
+
+  const sorted = useMemo(() => {
+    const arr = [...subs];
+    arr.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'name') cmp = a.name.localeCompare(b.name);
+      else if (sortKey === 'date') cmp = a.timestamp - b.timestamp;
+      else if (sortKey === 'editions') cmp = a.attendedEditions.length - b.attendedEditions.length;
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [subs, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(sorted.length / SUBMISSION_TABLE_PAGE_SIZE);
+  const visible = showAll ? sorted : sorted.slice(page * SUBMISSION_TABLE_PAGE_SIZE, (page + 1) * SUBMISSION_TABLE_PAGE_SIZE);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir(key === 'name' ? 'asc' : 'desc');
+    }
+    setPage(0);
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <span className="text-gray-300 ml-1">&#8597;</span>;
+    return <span className="ml-1">{sortDir === 'asc' ? '▲' : '▼'}</span>;
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full table-fixed">
+        <thead>
+          <tr className="border-b-2 border-gray-200 text-left text-sm text-gray-500">
+            <th className="px-4 py-2 font-medium cursor-pointer select-none hover:text-gray-700 w-[40%]" onClick={() => handleSort('name')}>
+              Nomo<SortIcon col="name" />
+            </th>
+            <th className="px-4 py-2 font-medium cursor-pointer select-none hover:text-gray-700 w-[22%]" onClick={() => handleSort('date')}>
+              Dato<SortIcon col="date" />
+            </th>
+            <th className="px-4 py-2 font-medium text-center cursor-pointer select-none hover:text-gray-700 w-[15%]" onClick={() => handleSort('editions')}>
+              Eldonoj<SortIcon col="editions" />
+            </th>
+            <th className="px-4 py-2 font-medium text-right w-[23%]">Agoj</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visible.map(sub => (
+            <SubmissionRow
+              key={sub.id}
+              sub={sub}
+              showApprove={showApprove}
+              expanded={expandedRows.has(sub.id)}
+              onToggle={onToggleRow}
+              onApprove={onApprove}
+              onDelete={onDelete}
+              onMerge={onMerge}
+              onApproveComments={onApproveComments}
+              onDeleteComments={onDeleteComments}
+              allSubmissions={allSubmissions}
+            />
+          ))}
+        </tbody>
+      </table>
+      {subs.length === 0 && (
+        <p className="text-center text-gray-400 py-8">Neniuj respondoj</p>
+      )}
+      {sorted.length > SUBMISSION_TABLE_PAGE_SIZE && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm">
+          <div className="text-gray-500">
+            {showAll
+              ? `${sorted.length} respondoj`
+              : `${page * SUBMISSION_TABLE_PAGE_SIZE + 1}–${Math.min((page + 1) * SUBMISSION_TABLE_PAGE_SIZE, sorted.length)} el ${sorted.length}`
+            }
+          </div>
+          <div className="flex items-center gap-2">
+            {!showAll && (
+              <>
+                <button
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  &laquo;
+                </button>
+                <span className="text-gray-600">{page + 1} / {totalPages}</span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  &raquo;
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => { setShowAll(v => !v); setPage(0); }}
+              className="ml-2 text-emerald-600 hover:text-emerald-800 font-medium"
+            >
+              {showAll ? 'Paĝigi' : 'Montri ĉiujn'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [secret, setSecret] = useState('');
@@ -220,6 +626,28 @@ export default function AdminPage() {
     const res = await apiFetch('/api/admin/submission', { method: 'DELETE' }, { id });
     if (res.ok) {
       setSubmissions(prev => prev.filter(s => s.id !== id));
+    }
+  };
+
+  const handleMerge = async (source: Submission, target: Submission, overlapping: string[]) => {
+    const newer = source.timestamp > target.timestamp ? source : target;
+    const newerDate = new Date(newer.timestamp).toLocaleDateString('eo', { year: 'numeric', month: 'short', day: 'numeric' });
+    const overlapMsg = overlapping.length > 0
+      ? `Averto: ${overlapping.join(', ')} interkovras — la valoroj de la pli freŝa respondo ("${newer.name}", ${newerDate}) estos konservitaj por tiuj.`
+      : 'Neniuj eventoj interkovras.';
+    const confirmed = confirm(
+      `Ĉu kunfandi la respondon de "${source.name}" (${source.attendedEditions.length} eventoj) en la respondon de "${target.name}" (${target.attendedEditions.length} eventoj)?\n\n${overlapMsg}\n\nĈi tio ne malfareblas.`
+    );
+    if (!confirmed) return;
+    const res = await apiFetch('/api/admin/submission', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'merge', sourceId: source.id, targetId: target.id }),
+    });
+    if (res.ok) {
+      fetchData();
+    } else {
+      alert('Eraro dum kunfando');
     }
   };
 
@@ -421,210 +849,6 @@ export default function AdminPage() {
     );
   }
 
-  // Submission table row
-  const SubmissionRow = ({ sub, showApprove }: { sub: Submission; showApprove?: boolean }) => {
-    const expanded = expandedRows.has(sub.id);
-    const date = new Date(sub.timestamp).toLocaleDateString('eo', { year: 'numeric', month: 'short', day: 'numeric' });
-    const editionCount = sub.attendedEditions.length;
-
-    return (
-      <>
-        <tr
-          className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
-          onClick={() => toggleRow(sub.id)}
-        >
-          <td className="px-4 py-3 font-medium text-gray-900 max-w-[160px] truncate">{sub.name}</td>
-          <td className="px-4 py-3 text-gray-600 text-sm whitespace-nowrap">{date}</td>
-          <td className="px-4 py-3 text-gray-600 text-sm text-center">{editionCount}</td>
-          <td className="px-4 py-3 text-right whitespace-nowrap">
-            {showApprove && (
-              <button
-                onClick={e => { e.stopPropagation(); handleApprove(sub.id); }}
-                className="text-sm bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded mr-2 transition-colors"
-              >
-                Aprobi
-              </button>
-            )}
-            <button
-              onClick={e => { e.stopPropagation(); handleDelete(sub.id, sub.name); }}
-              className="text-sm bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
-            >
-              Forigi
-            </button>
-          </td>
-        </tr>
-        {expanded && (
-          <tr className="bg-gray-50">
-            <td colSpan={4} className="px-4 py-3">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-sm font-medium text-gray-900">{sub.name}</span>
-                {sub.flagDuplicate && <span className="text-xs text-orange-600 bg-orange-100 rounded px-2 py-0.5">flago: duplikato</span>}
-                {sub.flagDuplicateIp && <span className="text-xs text-red-600 bg-red-100 rounded px-2 py-0.5">flago: sama IP</span>}
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm mb-3">
-                {Object.entries(sub.rankings).map(([edId, score]) => (
-                  <div key={edId} className="flex items-center gap-2">
-                    <span className={`inline-block w-2 h-2 rounded-full ${
-                      score === 4 ? 'bg-emerald-500' : score === 3 ? 'bg-blue-500' : score === 2 ? 'bg-yellow-500' : 'bg-red-500'
-                    }`} />
-                    <span className="text-gray-700">{edId}</span>
-                    <span className="text-gray-400">({SCORE_LABELS[score]})</span>
-                  </div>
-                ))}
-              </div>
-              {sub.comments && Object.keys(sub.comments).length > 0 && (
-                <div className="mb-3">
-                  <div className="text-xs font-medium text-gray-500 mb-1">Komentoj {sub.commentStatus === 'pending' ? '(atendantaj)' : ''}:</div>
-                  {Object.entries(sub.comments).map(([edId, comment]) => (
-                    <div key={edId} className="text-xs text-gray-600 ml-2">
-                      <span className="font-medium">{edId}:</span> {comment}
-                    </div>
-                  ))}
-                  {sub.commentStatus === 'pending' && (
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleApproveComments(sub.id); }}
-                        className="text-xs bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded transition-colors"
-                      >
-                        Aprobi komentojn
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteComments(sub.id); }}
-                        className="text-xs bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded transition-colors"
-                      >
-                        Forigi komentojn
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-              {sub.editToken && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const link = `${window.location.origin}/donu?token=${sub.editToken}`;
-                    navigator.clipboard.writeText(link);
-                  }}
-                  className="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded transition-colors"
-                >
-                  Kopii redaktan ligilon
-                </button>
-              )}
-            </td>
-          </tr>
-        )}
-      </>
-    );
-  };
-
-  const PAGE_SIZE = 10;
-
-  const SubmissionTable = ({ subs, showApprove, tableId }: { subs: Submission[]; showApprove?: boolean; tableId: string }) => {
-    const [sortKey, setSortKey] = useState<SortKey>('date');
-    const [sortDir, setSortDir] = useState<SortDir>('desc');
-    const [page, setPage] = useState(0);
-    const [showAll, setShowAll] = useState(false);
-
-    // Reset page when data changes
-    useEffect(() => { setPage(0); }, [subs.length, tableId]);
-
-    const sorted = useMemo(() => {
-      const arr = [...subs];
-      arr.sort((a, b) => {
-        let cmp = 0;
-        if (sortKey === 'name') cmp = a.name.localeCompare(b.name);
-        else if (sortKey === 'date') cmp = a.timestamp - b.timestamp;
-        else if (sortKey === 'editions') cmp = a.attendedEditions.length - b.attendedEditions.length;
-        return sortDir === 'asc' ? cmp : -cmp;
-      });
-      return arr;
-    }, [subs, sortKey, sortDir]);
-
-    const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
-    const visible = showAll ? sorted : sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-
-    const handleSort = (key: SortKey) => {
-      if (sortKey === key) {
-        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-      } else {
-        setSortKey(key);
-        setSortDir(key === 'name' ? 'asc' : 'desc');
-      }
-      setPage(0);
-    };
-
-    const SortIcon = ({ col }: { col: SortKey }) => {
-      if (sortKey !== col) return <span className="text-gray-300 ml-1">&#8597;</span>;
-      return <span className="ml-1">{sortDir === 'asc' ? '\u25B2' : '\u25BC'}</span>;
-    };
-
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed">
-          <thead>
-            <tr className="border-b-2 border-gray-200 text-left text-sm text-gray-500">
-              <th className="px-4 py-2 font-medium cursor-pointer select-none hover:text-gray-700 w-[40%]" onClick={() => handleSort('name')}>
-                Nomo<SortIcon col="name" />
-              </th>
-              <th className="px-4 py-2 font-medium cursor-pointer select-none hover:text-gray-700 w-[22%]" onClick={() => handleSort('date')}>
-                Dato<SortIcon col="date" />
-              </th>
-              <th className="px-4 py-2 font-medium text-center cursor-pointer select-none hover:text-gray-700 w-[15%]" onClick={() => handleSort('editions')}>
-                Eldonoj<SortIcon col="editions" />
-              </th>
-              <th className="px-4 py-2 font-medium text-right w-[23%]">Agoj</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map(sub => (
-              <SubmissionRow key={sub.id} sub={sub} showApprove={showApprove} />
-            ))}
-          </tbody>
-        </table>
-        {subs.length === 0 && (
-          <p className="text-center text-gray-400 py-8">Neniuj respondoj</p>
-        )}
-        {sorted.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm">
-            <div className="text-gray-500">
-              {showAll
-                ? `${sorted.length} respondoj`
-                : `${page * PAGE_SIZE + 1}\u2013${Math.min((page + 1) * PAGE_SIZE, sorted.length)} el ${sorted.length}`
-              }
-            </div>
-            <div className="flex items-center gap-2">
-              {!showAll && (
-                <>
-                  <button
-                    onClick={() => setPage(p => Math.max(0, p - 1))}
-                    disabled={page === 0}
-                    className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    &laquo;
-                  </button>
-                  <span className="text-gray-600">{page + 1} / {totalPages}</span>
-                  <button
-                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                    disabled={page >= totalPages - 1}
-                    className="px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
-                  >
-                    &raquo;
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => { setShowAll(v => !v); setPage(0); }}
-                className="ml-2 text-emerald-600 hover:text-emerald-800 font-medium"
-              >
-                {showAll ? 'Paĝigi' : 'Montri ĉiujn'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50">
       <div className="max-w-5xl mx-auto px-4 py-8">
@@ -770,7 +994,18 @@ export default function AdminPage() {
         <div className="bg-white rounded-xl shadow-xl">
           {activeTab === 'approved' && (
             <div className="p-4">
-              <SubmissionTable subs={approvedSubs} tableId="approved" />
+              <SubmissionTable
+                subs={approvedSubs}
+                tableId="approved"
+                expandedRows={expandedRows}
+                onToggleRow={toggleRow}
+                onApprove={handleApprove}
+                onDelete={handleDelete}
+                onMerge={handleMerge}
+                onApproveComments={handleApproveComments}
+                onDeleteComments={handleDeleteComments}
+                allSubmissions={submissions}
+              />
             </div>
           )}
 
@@ -786,7 +1021,19 @@ export default function AdminPage() {
                   </button>
                 </div>
               )}
-              <SubmissionTable subs={pendingSubs} showApprove tableId="pending" />
+              <SubmissionTable
+                subs={pendingSubs}
+                showApprove
+                tableId="pending"
+                expandedRows={expandedRows}
+                onToggleRow={toggleRow}
+                onApprove={handleApprove}
+                onDelete={handleDelete}
+                onMerge={handleMerge}
+                onApproveComments={handleApproveComments}
+                onDeleteComments={handleDeleteComments}
+                allSubmissions={submissions}
+              />
             </div>
           )}
 

@@ -40,6 +40,14 @@ CREATE TABLE IF NOT EXISTS submissions (
   ip TEXT
 );
 
+-- Added for the "returning respondent" self-service flow: flag_redo marks a full
+-- resubmission ("redo everything"); flag_addon marks a partial submission ("just add
+-- a missed event") that the admin should merge into the respondent's original row.
+-- ADD COLUMN IF NOT EXISTS is idempotent and additive, safe to rerun against a
+-- database that already has existing submissions.
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS flag_addon BOOLEAN DEFAULT false;
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS flag_redo BOOLEAN DEFAULT false;
+
 -- Default settings row (single row, id always = 1)
 INSERT INTO settings (id, require_moderation, require_comment_moderation, pri_page_content, weighting_mode)
 VALUES (1, false, false, '**laŭsperte** estas platformo por rangigi junulajn Esperanto-eventojn.

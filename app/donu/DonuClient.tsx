@@ -48,7 +48,8 @@ const DownArrow = () => (
 function DonuPageInner({ events }: { events: Event[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [step, setStep] = useState<'intro' | 'select' | 'rank' | 'top3'>('intro');
+  const [step, setStep] = useState<'returning' | 'mode' | 'intro' | 'select' | 'rank' | 'top3'>('returning');
+  const [submissionMode, setSubmissionMode] = useState<'new' | 'redo' | 'addon'>('new');
 
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [selectedEditions, setSelectedEditions] = useState<Set<string>>(new Set());
@@ -439,6 +440,8 @@ function DonuPageInner({ events }: { events: Event[] }) {
           rankings: rankingData,
           ...(Object.keys(intraRankings).length > 0 ? { intraRankings } : {}),
           ...(editToken ? { editToken } : {}),
+          ...(submissionMode === 'redo' ? { flagRedo: true } : {}),
+          ...(submissionMode === 'addon' ? { flagAddOn: true } : {}),
         }),
       });
       if (!response.ok) throw new Error('Submission failed');
@@ -458,6 +461,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
         if (years.length > 0) params.set('since', String(Math.min(...years)));
         if (result.editToken) params.set('editToken', result.editToken);
         if (result.edited) params.set('edited', '1');
+        if (submissionMode === 'addon') params.set('mode', 'addon');
         return params;
       };
 
@@ -518,6 +522,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
     // Carry over editToken from submission result
     if (submitResult?.editToken) params.set('editToken', submitResult.editToken);
     if (submitResult?.edited) params.set('edited', '1');
+    if (submissionMode === 'addon') params.set('mode', 'addon');
     router.push(`/rezultoj?${params.toString()}`);
   };
 
@@ -542,14 +547,26 @@ function DonuPageInner({ events }: { events: Event[] }) {
       <div className="max-w-4xl mx-auto px-4 py-12">
         <header className="text-center mb-12">
           <h1 className="text-4xl font-bold text-emerald-900 mb-2">
+            {step === 'returning' && 'Ĉu estas via unua fojo?'}
+            {step === 'mode' && 'Kion vi preferas fari?'}
             {step === 'intro' && 'Kiujn eventojn?'}
             {step === 'select' && (isEditMode ? 'Redaktu vian opinion' : 'Kiujn eventojn?')}
             {step === 'rank' && 'Rangigu!'}
             {step === 'top3' && 'Rangigu!'}
           </h1>
           <p className="text-emerald-700">
-            {step === 'intro' && <>Elektu ĉiujn eventojn kiujn vi <em>iam ajn</em> ĉeestis</>}
-            {step === 'select' && 'Elektu la specifajn eventojn kiujn vi ĉeestis'}
+            {step === 'returning' && 'Se vi jam antaŭe plenigis la formularon kaj nur aldonos novajn eventojn, bonvolu indiki tion'}
+            {step === 'mode' && 'Por ke la rangigo restu "objektiva", ni aŭ kunfandos viajn novajn respondojn kun la originalaj kiujn vi donos, aŭ forigos la malnovan kaj anstataŭigos ĝin per la nova.'}
+            {step === 'intro' && (
+              submissionMode === 'addon'
+                ? <>Elektu la eventojn, kiujn vi volas aldoni al via antaŭa rangigo</>
+                : <>Elektu ĉiujn eventojn kiujn vi <em>iam ajn</em> ĉeestis</>
+            )}
+            {step === 'select' && (
+              submissionMode === 'addon'
+                ? 'Elektu la specifan(j)n eldono(j)n, kiun(j)n vi volas aldoni'
+                : 'Elektu la specifajn eventojn kiujn vi ĉeestis'
+            )}
             {step === 'rank' && 'Bonvolu meti la eventojn en unu de la kategoriojn'}
             {step === 'top3' && 'Kiuj estis viaj 3 plej bonaj eventoj?'}
           </p>
@@ -558,6 +575,57 @@ function DonuPageInner({ events }: { events: Event[] }) {
         {error && (
           <div className="mb-6 px-4 py-3 rounded border bg-red-100 border-red-400 text-red-700">
             {error}
+          </div>
+        )}
+
+        {/* Step -2: Returning respondent? */}
+        {step === 'returning' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+              <div className="bg-emerald-600 px-6 py-4" />
+              <div className="px-8 py-8 flex flex-col gap-4">
+                <button
+                  onClick={() => { setSubmissionMode('new'); setStep('intro'); }}
+                  className="text-left border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50 rounded-xl px-6 py-4 transition-colors"
+                >
+                  <div className="font-semibold text-emerald-900 text-lg">Jes, estas mia unua fojo</div>
+                </button>
+                <button
+                  onClick={() => setStep('mode')}
+                  className="text-left border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50 rounded-xl px-6 py-4 transition-colors"
+                >
+                  <div className="font-semibold text-emerald-900 text-lg">Ne, mi jam antaŭe plenigis la formularon</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step -1: Redo entirely or just add a missed event */}
+        {step === 'mode' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+              <div className="bg-emerald-600 px-6 py-4" />
+              <div className="px-8 py-8 flex flex-col gap-4">
+                <button
+                  onClick={() => { setSubmissionMode('redo'); setStep('intro'); }}
+                  className="text-left border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50 rounded-xl px-6 py-4 transition-colors"
+                >
+                  <div className="font-semibold text-emerald-900 text-lg">Refari la tutan rangigon</div>
+                  <div className="text-sm text-emerald-700 mt-1">Mi volas re-rangigi ĉiujn eventojn de nulo</div>
+                </button>
+                <button
+                  onClick={() => { setSubmissionMode('addon'); setStep('intro'); }}
+                  className="text-left border-2 border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50 rounded-xl px-6 py-4 transition-colors"
+                >
+                  <div className="font-semibold text-emerald-900 text-lg">Nur aldoni mankintan eventon</div>
+                  <div className="text-sm text-emerald-700 mt-1">Mi ĉeestis novan eventon post mia lasta plenigo, kaj volas nur aldoni ĝin</div>
+                </button>
+              </div>
+            </div>
+            <button onClick={() => setStep('returning')} className="text-sm text-gray-500 hover:text-gray-700">
+              ← Reen
+            </button>
           </div>
         )}
 
@@ -852,6 +920,12 @@ function DonuPageInner({ events }: { events: Event[] }) {
               {isEditMode && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
                   Vi redaktas vian antaŭan respondon. Via rangigo estos ĝisdatigita.
+                </div>
+              )}
+
+              {!isEditMode && submissionMode !== 'new' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                  Grava: laŭeble uzu la saman nomon (aŭ kaŝnomon) kiun vi uzis en via antaŭa respondo, por ke ni povu ĝuste kunfandi viajn respondojn.
                 </div>
               )}
 

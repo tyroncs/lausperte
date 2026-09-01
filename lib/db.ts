@@ -47,6 +47,8 @@ export interface Submission {
   commentStatus?: 'approved' | 'pending';
   flagDuplicate?: boolean;
   flagDuplicateIp?: boolean;
+  flagAddOn?: boolean;
+  flagRedo?: boolean;
   ip?: string;
 }
 
@@ -67,6 +69,8 @@ function rowToSubmission(row: any): Submission {
     commentStatus: (row.comment_status as 'approved' | 'pending') ?? undefined,
     flagDuplicate: row.flag_duplicate ?? false,
     flagDuplicateIp: row.flag_duplicate_ip ?? false,
+    flagAddOn: row.flag_addon ?? false,
+    flagRedo: row.flag_redo ?? false,
     ip: row.ip ?? undefined,
   };
 }
@@ -219,7 +223,7 @@ export async function saveSubmission(submission: Submission): Promise<void> {
     INSERT INTO submissions (
       id, timestamp, name, attended_editions, rankings, intra_rankings,
       status, edit_token, comments, comment_status,
-      flag_duplicate, flag_duplicate_ip, ip
+      flag_duplicate, flag_duplicate_ip, flag_addon, flag_redo, ip
     ) VALUES (
       ${submission.id},
       ${submission.timestamp},
@@ -233,6 +237,8 @@ export async function saveSubmission(submission: Submission): Promise<void> {
       ${submission.commentStatus ?? null},
       ${submission.flagDuplicate ?? false},
       ${submission.flagDuplicateIp ?? false},
+      ${submission.flagAddOn ?? false},
+      ${submission.flagRedo ?? false},
       ${submission.ip ?? null}
     )
   `;
@@ -268,6 +274,36 @@ export async function deleteSubmission(id: string): Promise<boolean> {
   const db = sql();
   const result = await db`DELETE FROM submissions WHERE id = ${id} RETURNING id`;
   return result.length > 0;
+}
+
+export async function mergeSubmissions(sourceId: string, targetId: string): Promise<{ merged: boolean; overlappingEditions: string[] }> {
+  const db = sql();
+  const rows = await db`SELECT * FROM submissions WHERE id IN (${sourceId}, ${targetId})`;
+  const parsed = rows.map(rowToSubmission);
+  const source = parsed.find(s => s.id === sourceId);
+  const target = parsed.find(s => s.id === targetId);
+  if (!source || !target) return { merged: false, overlappingEditions: [] };
+
+  const overlappingEditions = source.attendedEditions.filter(id => target.attendedEditions.includes(id));
+  const mergedAttended = Array.from(new Set([...target.attendedEditions, ...source.attendedEditions]));
+
+  // For overlapping editions, the more recent response's values win.
+  const [older, newer] = source.timestamp <= target.timestamp ? [source, target] : [target, source];
+  const mergedRankings: RankingData = { ...older.rankings, ...newer.rankings };
+  const mergedIntra = { ...(older.intraRankings ?? {}), ...(newer.intraRankings ?? {}) };
+  const mergedComments = { ...(older.comments ?? {}), ...(newer.comments ?? {}) };
+
+  await updateSubmission(targetId, {
+    attendedEditions: mergedAttended,
+    rankings: mergedRankings,
+    ...(Object.keys(mergedIntra).length > 0 ? { intraRankings: mergedIntra } : {}),
+    ...(Object.keys(mergedComments).length > 0 ? { comments: mergedComments } : {}),
+    flagAddOn: false,
+    flagRedo: false,
+  });
+  await deleteSubmission(sourceId);
+
+  return { merged: true, overlappingEditions };
 }
 
 export async function getSubmissionCount(): Promise<number> {
@@ -310,6 +346,8 @@ export async function updateSubmission(id: string, data: Partial<Omit<Submission
   if ('commentStatus' in data) merged.commentStatus = data.commentStatus;
   if ('flagDuplicate' in data) merged.flagDuplicate = data.flagDuplicate;
   if ('flagDuplicateIp' in data) merged.flagDuplicateIp = data.flagDuplicateIp;
+  if ('flagAddOn' in data) merged.flagAddOn = data.flagAddOn;
+  if ('flagRedo' in data) merged.flagRedo = data.flagRedo;
   if ('ip' in data) merged.ip = data.ip;
 
   await db`
@@ -325,6 +363,8 @@ export async function updateSubmission(id: string, data: Partial<Omit<Submission
       comment_status   = ${merged.commentStatus ?? null},
       flag_duplicate   = ${merged.flagDuplicate ?? false},
       flag_duplicate_ip = ${merged.flagDuplicateIp ?? false},
+      flag_addon       = ${merged.flagAddOn ?? false},
+      flag_redo        = ${merged.flagRedo ?? false},
       ip               = ${merged.ip ?? null}
     WHERE id = ${id}
   `;
