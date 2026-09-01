@@ -1478,6 +1478,12 @@ export default function AdminPage() {
                             ))}
                           </div>
                         )}
+                        <input
+                          value={editionForm.logo}
+                          onChange={e => setEditionForm(prev => prev ? { ...prev, logo: e.target.value } : prev)}
+                          className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-500 mt-2"
+                          placeholder="aŭ enigu vojon, ekz. /event-logos/ijk-2026.png"
+                        />
                         {editionForm.logo && (
                           <div className="flex items-center gap-2 mt-2">
                             <img src={editionForm.logo} alt="" className="w-8 h-8 object-contain rounded" />
