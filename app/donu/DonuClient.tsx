@@ -126,7 +126,7 @@ function DonuPageInner({ events }: { events: Event[] }) {
           }
           setRankings(newRankings);
         }
-        setStep('rank');
+        setStep('select');
       })
       .catch(() => {
         setError('Nevalida redakta ligilo');
