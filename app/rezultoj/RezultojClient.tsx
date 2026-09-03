@@ -25,9 +25,11 @@ const EDITION_FLAGS: Record<string, string> = {
   'ijf-2018': '\u{1F1EE}\u{1F1F9}', 'ijf-2019': '\u{1F1EE}\u{1F1F9}', 'ijf-2022': '\u{1F1EE}\u{1F1F9}',
   'ijf-2023': '\u{1F1EE}\u{1F1F9}', 'ijf-2024': '\u{1F1EE}\u{1F1F9}',
   'renkej-2023': '\u{2764}\u{FE0F}\u{1F49B}', 'renkej-2024': '\u{2764}\u{FE0F}\u{1F49B}', 'renkej-2025': '\u{2764}\u{FE0F}\u{1F49B}',
+  'ijk-2026': '\u{2764}\u{FE0F}\u{1F49B}',
   'uk-2015': '\u{1F1EB}\u{1F1F7}', 'uk-2016': '\u{1F1F8}\u{1F1F0}', 'uk-2017': '\u{1F1F0}\u{1F1F7}',
   'uk-2018': '\u{1F1F5}\u{1F1F9}', 'uk-2019': '\u{1F1EB}\u{1F1EE}', 'uk-2022': '\u{1F1E8}\u{1F1E6}',
   'uk-2023': '\u{1F1EE}\u{1F1F9}', 'uk-2024': '\u{1F1F9}\u{1F1FF}', 'uk-2025': '\u{1F1E8}\u{1F1FF}',
+  'uk-2026': '\u{1F1E6}\u{1F1F9}',
   'festo-2025': '\u{1F1EB}\u{1F1F7}',
 };
 
@@ -157,7 +159,7 @@ function StoryCard({
         {topEntries.slice(0, 3).map((entry) => {
           const ed = getEd(entry.id);
           if (!ed) return null;
-          const isRenkej = entry.id.startsWith('renkej');
+          const isCatalan = entry.id.startsWith('renkej') || entry.id === 'ijk-2026';
           const flag = ed.flag || EDITION_FLAGS[entry.id] || '';
 
           return (
@@ -217,7 +219,7 @@ function StoryCard({
                 </div>
               </div>
 
-              {/* Flag — renkej uses custom Catalan image, others use Twemoji */}
+              {/* Flag — Catalonia-based editions (renkej, ijk-2026) use custom Catalan image, others use Twemoji */}
               <div
                 style={{
                   width: FLAG_COL,
@@ -228,7 +230,7 @@ function StoryCard({
                   marginLeft: 10,
                 }}
               >
-                {isRenkej ? (
+                {isCatalan ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src="/flags/renkej.png"
